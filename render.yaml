@@ -1,5 +1,10 @@
 services:
-  # Static site: login, dashboard, schedule, attendance, chat.
+  # Static site: login, dashboard, schedule, attendance, chat. Free forever
+  # on Render, no card required.
+  #
+  # The reminder scheduler is NOT a Render Cron Job — Render requires a paid
+  # plan for those (min $1/mo). It runs instead as a free GitHub Actions
+  # scheduled workflow — see .github/workflows/reminder.yml.
   - type: web
     name: instance-tracker-site
     env: static
@@ -9,24 +14,3 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
-
-  # Runs every minute, independent of any browser tab being open. Sends
-  # email reminders 5 minutes before each person's scheduled slot.
-  - type: cron
-    name: instance-tracker-reminder
-    env: node
-    rootDir: cron
-    schedule: "* * * * *"
-    buildCommand: npm install
-    startCommand: npm start
-    envVars:
-      - key: FIREBASE_SERVICE_ACCOUNT_JSON
-        sync: false
-      - key: RESEND_API_KEY
-        sync: false
-      - key: RESEND_FROM
-        value: "InstanceTrack <onboarding@resend.dev>"
-      - key: APP_TIMEZONE
-        value: Asia/Kolkata
-      - key: REMINDER_MINUTES_BEFORE
-        value: "5"
