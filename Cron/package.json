@@ -1,0 +1,13 @@
+{
+  "name": "instance-tracker-reminder-cron",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node reminder.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.1.0"
+  }
+}
