@@ -1,0 +1,33 @@
+name: Send instance slot reminders
+
+on:
+  schedule:
+    # GitHub's scheduler isn't minute-precise and can lag during high load,
+    # so reminder.js checks a window (0..REMINDER_MINUTES_BEFORE minutes
+    # until start) rather than an exact minute match.
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {} # lets you manually run this from the Actions tab to test
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: cron
+        run: npm install
+
+      - name: Check schedule and send due reminders
+        working-directory: cron
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          APP_TIMEZONE: ${{ vars.APP_TIMEZONE || 'Asia/Kolkata' }}
+          REMINDER_MINUTES_BEFORE: ${{ vars.REMINDER_MINUTES_BEFORE || '5' }}
+        run: npm start
