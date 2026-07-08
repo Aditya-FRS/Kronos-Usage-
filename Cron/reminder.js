@@ -1,13 +1,18 @@
 // ---------------------------------------------------------------------------
-// Runs on a schedule (Render Cron Job, e.g. every minute) — completely
-// independent of whether anyone has the InstanceTrack dashboard open.
+// Runs on a schedule (GitHub Actions, every 5 minutes — see
+// .github/workflows/reminder.yml) — completely independent of whether
+// anyone has the InstanceTrack dashboard open.
 //
 // Each run:
 //   1. Reads the weekly schedule from Firestore (config/schedule).
-//   2. Works out which slot(s) start REMINDER_MINUTES_BEFORE minutes from now
-//      (in APP_TIMEZONE).
+//   2. Finds slot(s) whose start time is between 0 and REMINDER_MINUTES_BEFORE
+//      minutes from now (in APP_TIMEZONE) — a window, not an exact-minute
+//      match, so this tolerates the scheduler firing a bit early/late/less
+//      often than once a minute (GitHub Actions schedules aren't
+//      minute-precise).
 //   3. For each match not already reminded (deduped via the `reminders`
-//      collection), emails the assigned user via Resend.
+//      collection, so re-checking the same slot across runs is safe),
+//      emails the assigned user via Resend.
 // ---------------------------------------------------------------------------
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
@@ -73,10 +78,11 @@ async function sendReminderEmail(toEmail, name, slot) {
 
 async function run() {
   const now = new Date();
-  const target = new Date(now.getTime() + REMINDER_MINUTES_BEFORE * 60 * 1000);
-  const { date, time, weekday } = partsInTimeZone(target, APP_TIMEZONE);
+  const { date, time, weekday } = partsInTimeZone(now, APP_TIMEZONE);
+  const [nowH, nowM] = time.split(":").map(Number);
+  const nowMinutes = nowH * 60 + nowM;
 
-  console.log(`[reminder] checking slots starting at ${time} on ${weekday} (${date})`);
+  console.log(`[reminder] checking slots for ${weekday} (${date}), now ${time}`);
 
   const scheduleSnap = await db.collection("config").doc("schedule").get();
   if (!scheduleSnap.exists) {
@@ -85,7 +91,11 @@ async function run() {
   }
   const schedule = scheduleSnap.data();
   const todaySlots = schedule[weekday] || [];
-  const matches = todaySlots.filter((s) => s.start === time);
+  const matches = todaySlots.filter((s) => {
+    const [sh, sm] = s.start.split(":").map(Number);
+    const minutesUntilStart = (sh * 60 + sm) - nowMinutes;
+    return minutesUntilStart >= 0 && minutesUntilStart <= REMINDER_MINUTES_BEFORE;
+  });
 
   if (!matches.length) {
     console.log("[reminder] no slots starting in the reminder window.");
