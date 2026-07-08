@@ -3,8 +3,7 @@ import { backend, CONFIG_READY, WEEKDAYS, WEEKDAY_LABELS, todayStr, weekdayKey, 
 const DISPLAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
 // ------------------------------- auth guard --------------------------------
-const me = backend.currentUser();
-if (!me) window.location.href = "index.html";
+let me = null;
 
 let myProfile = null;
 let mySchedule = null;
@@ -483,4 +482,8 @@ document.addEventListener("click", (e) => {
   if (!notifPanel.contains(e.target) && e.target !== notifBell) notifPanel.classList.remove("open");
 });
 
-boot();
+(async () => {
+  me = await backend.waitForUser();
+  if (!me) { window.location.href = "index.html"; return; }
+  await boot();
+})();
